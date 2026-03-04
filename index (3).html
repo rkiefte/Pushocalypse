@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0a0a">
+<title>PUSHOCALYPSE</title>
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a; --surface: #141414; --card: #1a1a1a; --border: #2a2a2a;
+    --accent: #e8ff47; --accent2: #ff4747; --accent3: #47b4ff;
+    --text: #f0f0f0; --muted: #666; --green: #47ff8a;
+    --orange: #ff9f47; --purple: #c47aff;
+    --nav-h: 68px; --header-h: 62px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; overscroll-behavior:none; }
+  body { background:var(--bg); color:var(--text); font-family:'DM Mono',monospace; overflow-x:hidden; }
+
+  header {
+    position:fixed; top:0; left:0; right:0; height:var(--header-h);
+    background:rgba(10,10,10,0.96); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--border); display:flex; flex-direction:column;
+    align-items:center; justify-content:center; padding:0 18px; z-index:200;
+  }
+  .logo { font-family:'Black Han Sans',sans-serif; font-size:1.3rem; letter-spacing:4px; color:var(--accent); text-shadow:0 0 24px rgba(232,255,71,0.35); line-height:1; }
+  .logo span { color:var(--accent2); }
+  .tagline { font-size:0.52rem; color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-top:3px; }
+
+  .sync-dot {
+    position:absolute; right:16px; top:50%; transform:translateY(-50%);
+    width:8px; height:8px; border-radius:50%; background:var(--muted);
+    transition:background 0.3s;
+  }
+  .sync-dot.synced  { background:var(--green); box-shadow:0 0 6px var(--green); }
+  .sync-dot.syncing { background:var(--orange); box-shadow:0 0 6px var(--orange); }
+  .sync-dot.error   { background:var(--accent2); box-shadow:0 0 6px var(--accent2); }
+
+  .app-body {
+    position:fixed; top:var(--header-h); left:0; right:0; bottom:var(--nav-h);
+    overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior-y:contain;
+  }
+  main { padding:16px 16px 24px; max-width:600px; margin:0 auto; }
+  .section { display:none; }
+  .section.active { display:block; }
+
+  .bottom-nav {
+    position:fixed; bottom:0; left:0; right:0; height:var(--nav-h);
+    background:rgba(10,10,10,0.97); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+    border-top:1px solid var(--border); display:flex; z-index:200;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .nav-btn {
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:3px; background:none; border:none; color:var(--muted); font-family:'DM Mono',monospace;
+    font-size:0.48rem; letter-spacing:0.5px; text-transform:uppercase; cursor:pointer; padding:0; min-height:44px;
+  }
+  .nav-btn .nav-icon { font-size:1.2rem; line-height:1; }
+  .nav-btn.active { color:var(--accent); }
+  .nav-btn.active .nav-icon { filter:drop-shadow(0 0 6px rgba(232,255,71,0.5)); }
+
+  .sec-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+  .sec-title { font-family:'Black Han Sans',sans-serif; font-size:0.9rem; letter-spacing:3px; text-transform:uppercase; }
+  .sec-sub { font-size:0.6rem; color:var(--muted); letter-spacing:1.5px; }
+
+  .player-cards { display:flex; flex-direction:column; gap:10px; margin-bottom:24px; }
+  .player-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; animation:slideIn 0.25s ease both; }
+  .player-card.rank-1 { border-left:3px solid var(--accent); }
+  .player-card.rank-2 { border-left:3px solid #aaa; }
+  .player-card.rank-3 { border-left:3px solid #cd7f32; }
+  @keyframes slideIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  .card-top { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+  .rank-badge { font-family:'Black Han Sans',sans-serif; font-size:1.6rem; line-height:1; min-width:32px; text-align:center; color:var(--muted); }
+  .rank-1 .rank-badge { color:var(--accent); }
+  .rank-2 .rank-badge { color:#ccc; }
+  .rank-3 .rank-badge { color:#cd7f32; }
+  .card-name-row { flex:1; min-width:0; }
+  .player-name { font-family:'Black Han Sans',sans-serif; font-size:1.05rem; letter-spacing:2px; display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+  .card-score-block { text-align:right; flex-shrink:0; }
+  .score-num { font-family:'Black Han Sans',sans-serif; font-size:1.6rem; color:var(--accent); line-height:1; }
+  .score-lbl { font-size:0.55rem; color:var(--muted); letter-spacing:1px; }
+  .streak-line { font-size:0.6rem; color:var(--accent2); letter-spacing:1px; margin-top:2px; }
+  .shame-line { font-size:0.62rem; letter-spacing:1px; margin-top:4px; padding:4px 8px; border-radius:4px; display:inline-block; }
+  .shame-ok   { color:var(--green); }
+  .shame-warn { color:var(--orange); }
+  .shame-bad  { color:var(--accent2); font-weight:700; }
+
+  .milestones { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:10px; }
+  .m-badge { font-size:0.55rem; padding:3px 7px; border-radius:4px; letter-spacing:1px; font-family:'Black Han Sans',sans-serif; border:1px solid; }
+  .m-gold   { color:#ffd700; border-color:#ffd700; background:rgba(255,215,0,0.08); }
+  .m-silver { color:#aaa;    border-color:#aaa;    background:rgba(170,170,170,0.08); }
+  .m-green  { color:var(--green);  border-color:var(--green);  background:rgba(71,255,138,0.08); }
+  .m-blue   { color:var(--accent3); border-color:var(--accent3); background:rgba(71,180,255,0.08); }
+  .m-purple { color:var(--purple); border-color:var(--purple); background:rgba(196,122,255,0.08); }
+
+  .progress-bars { display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
+  .bar-row { display:flex; align-items:center; gap:8px; font-size:0.6rem; color:var(--muted); letter-spacing:1px; }
+  .bar-label { width:56px; flex-shrink:0; }
+  .bar-track { flex:1; height:7px; background:var(--border); border-radius:4px; overflow:hidden; }
+  .bar-fill { height:100%; border-radius:4px; transition:width 0.6s cubic-bezier(.4,0,.2,1); }
+  .bar-fill.pushups { background:var(--accent); }
+  .bar-fill.plank   { background:var(--accent3); }
+  .bar-count { width:48px; text-align:right; flex-shrink:0; }
+
+  .raz-btn { width:100%; padding:10px; background:transparent; border:1px solid var(--accent2); color:var(--accent2); font-family:'DM Mono',monospace; font-size:0.7rem; letter-spacing:1.5px; cursor:pointer; border-radius:8px; text-transform:uppercase; min-height:44px; }
+  .raz-btn:active { background:var(--accent2); color:#000; }
+
+  .badge { display:inline-block; font-size:0.5rem; padding:2px 5px; border-radius:3px; letter-spacing:1px; font-family:'Black Han Sans',sans-serif; }
+  .badge-green { background:var(--green); color:#000; }
+  .badge-blue  { background:var(--accent3); color:#000; }
+
+  .stats-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .stat-card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:16px 12px; text-align:center; }
+  .stat-value { font-family:'Black Han Sans',sans-serif; font-size:1.8rem; color:var(--accent); display:block; line-height:1; }
+  .stat-label { font-size:0.55rem; color:var(--muted); letter-spacing:1.5px; text-transform:uppercase; margin-top:4px; display:block; }
+
+  .week-grid { display:flex; flex-direction:column; gap:8px; margin-bottom:24px; }
+  .week-day-card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px 14px; }
+  .week-day-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .week-day-label { font-family:'Black Han Sans',sans-serif; font-size:0.8rem; letter-spacing:2px; }
+  .week-day-winner { font-size:0.65rem; color:var(--accent); letter-spacing:1px; }
+  .week-player-row { display:flex; align-items:center; gap:8px; margin-bottom:4px; font-size:0.62rem; color:var(--muted); }
+  .week-player-name { width:70px; flex-shrink:0; color:var(--text); }
+  .week-bar-track { flex:1; height:5px; background:var(--border); border-radius:3px; overflow:hidden; }
+  .week-bar-fill { height:100%; border-radius:3px; background:var(--accent); transition:width 0.5s ease; }
+  .week-bar-count { width:50px; text-align:right; flex-shrink:0; }
+  .week-empty { color:var(--muted); font-size:0.65rem; letter-spacing:1px; padding:4px 0; }
+
+  .log-form { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px 16px; margin-bottom:16px; }
+  .form-title { font-family:'Black Han Sans',sans-serif; font-size:0.85rem; letter-spacing:3px; text-transform:uppercase; color:var(--accent); margin-bottom:18px; }
+  .form-group { margin-bottom:16px; }
+  .form-label { display:block; font-size:0.6rem; letter-spacing:2px; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
+  .form-select,.form-input { width:100%; background:var(--surface); border:1px solid var(--border); color:var(--text); padding:14px; font-family:'DM Mono',monospace; font-size:1rem; border-radius:8px; outline:none; transition:border-color 0.2s; -webkit-appearance:none; appearance:none; min-height:50px; }
+  .form-select:focus,.form-input:focus { border-color:var(--accent); }
+
+  .quick-btns { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+  .quick-btn { padding:12px 6px; background:var(--surface); border:1px solid var(--border); color:var(--text); font-family:'DM Mono',monospace; font-size:0.85rem; border-radius:8px; cursor:pointer; text-align:center; min-height:48px; }
+  .quick-btn:active { background:var(--accent); color:#000; border-color:var(--accent); transform:scale(0.96); }
+
+  .plank-toggle { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .toggle-btn { padding:14px; background:var(--surface); border:1px solid var(--border); color:var(--muted); font-family:'DM Mono',monospace; font-size:0.75rem; letter-spacing:1px; cursor:pointer; border-radius:8px; text-transform:uppercase; min-height:50px; }
+  .toggle-btn.selected { background:var(--accent3); border-color:var(--accent3); color:#000; }
+
+  .btn-log { width:100%; padding:16px; background:var(--accent); color:#000; border:none; font-family:'Black Han Sans',sans-serif; font-size:1.05rem; letter-spacing:3px; cursor:pointer; border-radius:10px; text-transform:uppercase; min-height:54px; margin-top:4px; }
+  .btn-log:active { transform:scale(0.98); background:#fff; }
+
+  .raz-feed { display:flex; flex-direction:column; gap:10px; }
+  .raz-item { background:var(--card); border:1px solid #2a1a1a; border-left:3px solid var(--accent2); border-radius:10px; padding:14px; animation:slideIn 0.2s ease; }
+  .raz-text { font-size:0.82rem; line-height:1.5; margin-bottom:6px; }
+  .raz-meta { font-size:0.6rem; color:var(--muted); letter-spacing:1px; }
+  .auto-raz-item { border-left-color:var(--orange) !important; }
+
+  .log-entries { display:flex; flex-direction:column; gap:8px; }
+  .log-entry { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center; }
+  .log-name { font-family:'Black Han Sans',sans-serif; font-size:0.9rem; }
+  .log-detail { font-size:0.62rem; color:var(--muted); letter-spacing:1px; margin-top:2px; }
+  .log-time { font-size:0.6rem; color:var(--muted); text-align:right; flex-shrink:0; margin-left:10px; line-height:1.6; }
+
+  .empty { text-align:center; padding:48px 20px; color:var(--muted); font-size:0.75rem; letter-spacing:1px; line-height:2.2; }
+
+  .toast { position:fixed; bottom:calc(var(--nav-h) + 12px); left:16px; right:16px; transform:translateY(120px); background:var(--accent); color:#000; padding:14px 20px; border-radius:10px; font-family:'Black Han Sans',sans-serif; letter-spacing:2px; font-size:0.85rem; z-index:9999; transition:transform 0.3s cubic-bezier(0.4,0,0.2,1); text-align:center; }
+  .toast.show { transform:translateY(0); }
+  .toast.raz  { background:var(--accent2); color:#fff; }
+  .toast.milestone { background:var(--purple); color:#fff; }
+
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.88); z-index:500; display:none; align-items:flex-end; justify-content:center; }
+  .modal-overlay.open { display:flex; }
+  .modal { background:var(--card); border:1px solid var(--border); border-radius:20px 20px 0 0; padding:20px 18px calc(24px + env(safe-area-inset-bottom)); width:100%; max-width:600px; animation:sheetUp 0.25s ease; max-height:90vh; overflow-y:auto; }
+  @keyframes sheetUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
+  .modal-handle { width:40px; height:4px; background:var(--border); border-radius:2px; margin:0 auto 16px; }
+  .modal-title { font-family:'Black Han Sans',sans-serif; font-size:1.1rem; letter-spacing:3px; color:var(--accent2); margin-bottom:4px; text-transform:uppercase; }
+  .modal-subtitle { font-size:0.65rem; color:var(--muted); letter-spacing:1px; margin-bottom:16px; }
+  .raz-options { display:flex; flex-direction:column; gap:8px; margin-bottom:16px; }
+  .raz-option { padding:12px 14px; background:var(--surface); border:1px solid var(--border); color:var(--text); font-family:'DM Mono',monospace; font-size:0.75rem; cursor:pointer; border-radius:8px; text-align:left; line-height:1.5; min-height:44px; }
+  .raz-option:active,.raz-option.selected { border-color:var(--accent2); background:rgba(255,71,71,0.12); color:var(--accent2); }
+  .modal-actions { display:flex; gap:10px; }
+  .btn-cancel { flex:1; padding:14px; background:transparent; border:1px solid var(--border); color:var(--muted); font-family:'DM Mono',monospace; font-size:0.75rem; cursor:pointer; border-radius:10px; min-height:50px; }
+  .btn-send-raz { flex:2; padding:14px; background:var(--accent2); border:none; color:#fff; font-family:'Black Han Sans',sans-serif; font-size:0.9rem; letter-spacing:2px; cursor:pointer; border-radius:10px; text-transform:uppercase; min-height:50px; }
+  .btn-send-raz:active { background:#ff6060; }
+
+  .settings-row { display:flex; align-items:center; justify-content:space-between; padding:14px; background:var(--card); border:1px solid var(--border); border-radius:10px; margin-bottom:10px; }
+  .settings-label { font-size:0.7rem; letter-spacing:1px; }
+  .settings-sub { font-size:0.58rem; color:var(--muted); margin-top:2px; letter-spacing:1px; }
+  .time-input { background:var(--surface); border:1px solid var(--border); color:var(--text); padding:8px 10px; font-family:'DM Mono',monospace; font-size:0.85rem; border-radius:6px; outline:none; width:110px; text-align:center; }
+  .time-input:focus { border-color:var(--accent); }
+
+  .setup-screen { display:none; position:fixed; inset:0; background:var(--bg); z-index:999; overflow-y:auto; padding:40px 20px calc(40px + env(safe-area-inset-bottom)); }
+  .setup-screen.open { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100%; }
+  .setup-title { font-family:'Black Han Sans',sans-serif; font-size:2rem; letter-spacing:4px; color:var(--accent); text-shadow:0 0 40px rgba(232,255,71,0.3); text-align:center; margin-bottom:4px; }
+  .setup-title span { color:var(--accent2); }
+  .setup-tagline { text-align:center; color:var(--muted); font-size:0.62rem; letter-spacing:2px; margin-bottom:32px; font-style:italic; }
+  .setup-players { display:flex; flex-direction:column; gap:12px; width:100%; max-width:360px; margin-bottom:24px; }
+  .setup-lbl { font-size:0.58rem; letter-spacing:2px; color:var(--muted); margin-bottom:5px; display:block; }
+  .setup-input { width:100%; background:var(--surface); border:1px solid var(--border); color:var(--text); padding:16px 14px; font-family:'DM Mono',monospace; font-size:1rem; border-radius:10px; outline:none; min-height:54px; -webkit-appearance:none; }
+  .setup-input:focus { border-color:var(--accent); }
+  .btn-start { width:100%; max-width:360px; padding:18px; background:var(--accent); color:#000; border:none; font-family:'Black Han Sans',sans-serif; font-size:1.1rem; letter-spacing:4px; cursor:pointer; border-radius:12px; text-transform:uppercase; min-height:58px; }
+  .btn-start:active { transform:scale(0.98); }
+
+  /* Loading overlay */
+  .loading-overlay { position:fixed; inset:0; background:var(--bg); z-index:998; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; }
+  .loading-overlay.hidden { display:none; }
+  .loading-title { font-family:'Black Han Sans',sans-serif; font-size:1.8rem; letter-spacing:4px; color:var(--accent); }
+  .loading-title span { color:var(--accent2); }
+  .loading-sub { font-size:0.6rem; color:var(--muted); letter-spacing:2px; }
+  .spinner { width:32px; height:32px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.8s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-title">PUSH<span>OCALYPSE</span></div>
+  <div class="spinner"></div>
+  <div class="loading-sub">CONNECTING TO THE RECKONING...</div>
+</div>
+
+<!-- SETUP -->
+<div class="setup-screen" id="setupScreen">
+  <div class="setup-title">PUSH<span>OCALYPSE</span></div>
+  <div class="setup-tagline">WITNESS THE REP RECKONING</div>
+  <div class="setup-players">
+    <div><span class="setup-lbl">PLAYER 1</span><input class="setup-input" id="p1" placeholder="Name..." maxlength="12" autocomplete="off"></div>
+    <div><span class="setup-lbl">PLAYER 2</span><input class="setup-input" id="p2" placeholder="Name..." maxlength="12" autocomplete="off"></div>
+    <div><span class="setup-lbl">PLAYER 3 (optional)</span><input class="setup-input" id="p3" placeholder="Name..." maxlength="12" autocomplete="off"></div>
+    <div><span class="setup-lbl">PLAYER 4 (optional)</span><input class="setup-input" id="p4" placeholder="Name..." maxlength="12" autocomplete="off"></div>
+  </div>
+  <button class="btn-start" onclick="startApp()">BEGIN THE RECKONING →</button>
+</div>
+
+<header>
+  <div style="text-align:center;flex:1">
+    <div class="logo">PUSH<span>OCALYPSE</span></div>
+    <div class="tagline">WITNESS THE REP RECKONING</div>
+  </div>
+  <div class="sync-dot" id="syncDot" title="Sync status"></div>
+</header>
+
+<div class="app-body">
+  <main>
+
+    <div class="section active" id="section-board">
+      <div class="sec-header">
+        <span class="sec-title">TODAY</span>
+        <span class="sec-sub" id="todayLabel"></span>
+      </div>
+      <div class="player-cards" id="playerCards"></div>
+      <div class="sec-header" style="margin-top:8px">
+        <span class="sec-title">ALL TIME</span>
+      </div>
+      <div class="stats-grid" id="overallStats"></div>
+    </div>
+
+    <div class="section" id="section-weekly">
+      <div class="sec-header">
+        <span class="sec-title">THIS WEEK</span>
+        <span class="sec-sub" id="weekRange"></span>
+      </div>
+      <div class="week-grid" id="weekGrid"></div>
+      <div class="sec-header" style="margin-top:8px">
+        <span class="sec-title">WEEKLY WINS</span>
+      </div>
+      <div class="stats-grid" id="weeklyWins"></div>
+    </div>
+
+    <div class="section" id="section-log">
+      <div class="log-form">
+        <div class="form-title">LOG YOUR REPS</div>
+        <div class="form-group">
+          <label class="form-label">WHO'S LOGGING?</label>
+          <select class="form-select" id="logPlayer"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">PUSHUPS — QUICK ADD</label>
+          <div class="quick-btns">
+            <button class="quick-btn" onclick="addPushups(10)">+10</button>
+            <button class="quick-btn" onclick="addPushups(20)">+20</button>
+            <button class="quick-btn" onclick="addPushups(25)">+25</button>
+            <button class="quick-btn" onclick="addPushups(50)">+50</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">OR ENTER CUSTOM</label>
+          <input class="form-input" type="number" id="logPushups" placeholder="0" min="0" max="500" inputmode="numeric">
+        </div>
+        <div class="form-group">
+          <label class="form-label">1 MIN PLANK DONE TODAY?</label>
+          <div class="plank-toggle">
+            <button class="toggle-btn" id="plankNo" onclick="togglePlank(false)">NOT YET</button>
+            <button class="toggle-btn selected" id="plankYes" onclick="togglePlank(true)">✓ DONE</button>
+          </div>
+        </div>
+        <button class="btn-log" onclick="logEntry()">LOG IT 💪</button>
+      </div>
+    </div>
+
+    <div class="section" id="section-razz">
+      <div class="sec-header">
+        <span class="sec-title">💀 RAZZ FEED</span>
+        <span class="sec-sub">KEEP 'EM HONEST</span>
+      </div>
+      <div class="raz-feed" id="razzFeed"></div>
+    </div>
+
+    <div class="section" id="section-history">
+      <div class="sec-header"><span class="sec-title">HISTORY</span></div>
+      <div class="log-entries" id="logEntries"></div>
+    </div>
+
+    <div class="section" id="section-crew">
+      <div class="sec-header">
+        <span class="sec-title">CREW</span>
+        <span class="sec-sub">MANAGE PLAYERS</span>
+      </div>
+      <div class="log-form" style="margin-bottom:16px">
+        <div class="form-title">ADD PLAYER</div>
+        <div class="form-group">
+          <label class="form-label">NAME</label>
+          <input class="form-input" id="newPlayerName" placeholder="Name..." maxlength="12" autocomplete="off">
+        </div>
+        <div class="form-group">
+          <label class="form-label">DAILY PUSHUP GOAL</label>
+          <input class="form-input" type="number" id="newPlayerGoal" placeholder="100" min="1" max="1000" inputmode="numeric">
+        </div>
+        <button class="btn-log" style="background:var(--accent3);color:#000" onclick="addPlayer()">ADD TO CREW +</button>
+      </div>
+      <div class="sec-header" style="margin-top:8px"><span class="sec-title">AUTO-RAZZ</span></div>
+      <div class="settings-row">
+        <div>
+          <div class="settings-label">SHAME HOUR</div>
+          <div class="settings-sub">AUTO-RAZZ SLACKERS AFTER THIS TIME</div>
+        </div>
+        <input class="time-input" type="time" id="autoRazzTime" value="20:00">
+      </div>
+      <div style="margin-bottom:16px">
+        <button class="btn-log" style="background:var(--surface);color:var(--text);border:1px solid var(--border)" onclick="saveSettings()">SAVE SETTINGS</button>
+      </div>
+      <div class="sec-header"><span class="sec-title">CURRENT CREW</span></div>
+      <div id="crewList" style="display:flex;flex-direction:column;gap:10px"></div>
+    </div>
+
+  </main>
+</div>
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="nav-board"   onclick="showTab('board',this)"><span class="nav-icon">🏆</span>BOARD</button>
+  <button class="nav-btn"        id="nav-weekly"  onclick="showTab('weekly',this)"><span class="nav-icon">📅</span>WEEK</button>
+  <button class="nav-btn"        id="nav-log"     onclick="showTab('log',this)"><span class="nav-icon">💪</span>LOG</button>
+  <button class="nav-btn"        id="nav-razz"    onclick="showTab('razz',this)"><span class="nav-icon">💀</span>RAZZ</button>
+  <button class="nav-btn"        id="nav-crew"    onclick="showTab('crew',this)"><span class="nav-icon">⚙️</span>CREW</button>
+</nav>
+
+<div class="modal-overlay" id="razzModal" onclick="handleOverlayClick(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">💀 RAZZ THEM</div>
+    <div class="modal-subtitle" id="razzModalSub">PICK YOUR SHOT</div>
+    <div class="raz-options" id="razzOptions"></div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:0.6rem;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:6px">OR WRITE YOUR OWN</div>
+      <input id="customRazz" class="form-input" placeholder="Type your razz..." maxlength="120" autocomplete="off" oninput="selectCustomRazz(this.value)">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeRazz()">CANCEL</button>
+      <button class="btn-send-raz" onclick="sendRazz()">SEND IT 💀</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- FIREBASE COMPAT SDK (works on all hosts) -->
+<script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.0.0/firebase-database-compat.js"></script>
+<script>
+firebase.initializeApp({
+  apiKey: "AIzaSyAxHKfG06pHR3l1eRj95kIjT5ZjDVqMStU",
+  authDomain: "pushocalypse.firebaseapp.com",
+  databaseURL: "https://pushocalypse-default-rtdb.firebaseio.com",
+  projectId: "pushocalypse",
+  storageBucket: "pushocalypse.firebasestorage.app",
+  messagingSenderId: "157303209324",
+  appId: "1:157303209324:web:285cfe6853459283520749",
+});
+const db = firebase.database();
+
+// Compat shims so rest of code works unchanged
+const ref     = (database, path) => database.ref(path);
+const set     = (r, val) => r.set(val);
+const push    = (r, val) => r.push(val);
+const onValue = (r, cb, errCb) => r.on('value', cb, errCb);
+
+// ── SYNC HELPERS ──────────────────────────────────────
+const syncDot = document.getElementById('syncDot');
+function setSyncing() { syncDot.className='sync-dot syncing'; }
+function setSynced()  { syncDot.className='sync-dot synced'; }
+function setError()   { syncDot.className='sync-dot error'; }
+
+function dbSet(path, value) {
+  setSyncing();
+  return set(ref(db, path), value)
+    .then(setSynced)
+    .catch(e => { setError(); console.error(e); });
+}
+
+// ── CONSTANTS ─────────────────────────────────────────
+const RAZ_LINES = [
+  "Still warming up? My grandma logs more reps 💀",
+  "0 pushups today. Bold strategy, champ.",
+  "The couch called. Sounds like you answered.",
+  "At this pace you'll hit your goal by next year.",
+  "Imagine skipping a plank. For what exactly?",
+  "The plank challenge called. It's embarrassed for you.",
+  "You're the group's participation trophy rn.",
+  "Bro really out here building excuses not muscle.",
+  "Last place looking comfortable for you?",
+  "The only thing you're pressing is your luck.",
+  "Rest day? Or just soft? Be honest.",
+  "Every pushup you skip, I'm doing two. 😤",
+];
+
+const AUTO_RAZ_LINES = [
+  "hasn't logged a single rep today 👀 The shame is real.",
+  "is MIA today. Couch: 1, Gains: 0.",
+  "forgot to exist today apparently. 0 pushups logged.",
+  "is today's certified slacker. Step it up! 💀",
+];
+
+const MILESTONES = [
+  { id:'push500',  label:'500 PUSHUPS',   check: p => allTimePushups(p) >= 500,  cls:'m-silver' },
+  { id:'push1000', label:'1K PUSHUPS',    check: p => allTimePushups(p) >= 1000, cls:'m-gold'   },
+  { id:'push5000', label:'5K PUSHUPS',    check: p => allTimePushups(p) >= 5000, cls:'m-gold'   },
+  { id:'plank10',  label:'10 PLANKS',     check: p => allTimePlanks(p) >= 10,    cls:'m-blue'   },
+  { id:'plank30',  label:'30 PLANKS',     check: p => allTimePlanks(p) >= 30,    cls:'m-blue'   },
+  { id:'streak7',  label:'7 DAY STREAK',  check: p => getStreak(p) >= 7,         cls:'m-green'  },
+  { id:'streak30', label:'30 DAY STREAK', check: p => getStreak(p) >= 30,        cls:'m-purple' },
+  { id:'firstlog', label:'FIRST LOG',     check: p => state.logs.some(l=>l.player===p), cls:'m-green' },
+];
+
+// ── STATE ─────────────────────────────────────────────
+let state = {
+  players: [], goals: {}, logs: [], razzFeed: [],
+  autoRazzTime: '20:00', seenMilestones: {},
+  plankSelected: true, razzTarget: null, razzSelected: null,
+};
+let initialized = false;
+
+// ── HELPERS ───────────────────────────────────────────
+const todayStr = () => new Date().toLocaleDateString('en-CA');
+const fmtDate  = d  => new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'});
+const fmtTime  = ts => new Date(ts).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true});
+const goalOf   = p  => state.goals[p] || 100;
+
+const todayLogs    = p => state.logs.filter(l => l.player===p && l.date===todayStr());
+const todayPushups = p => todayLogs(p).reduce((s,l) => s+(l.pushups||0), 0);
+const todayPlank   = p => todayLogs(p).some(l => l.plank);
+
+function allTimePushups(p) { return state.logs.filter(l=>l.player===p).reduce((s,l)=>s+(l.pushups||0),0); }
+function allTimePlanks(p)  { return [...new Set(state.logs.filter(l=>l.player===p&&l.plank).map(l=>l.date))].length; }
+
+function getStreak(player) {
+  const dates = [...new Set(state.logs.filter(l=>l.player===player).map(l=>l.date))].sort().reverse();
+  let streak=0, d=new Date();
+  for (const date of dates) {
+    if (date===d.toLocaleDateString('en-CA')) { streak++; d.setDate(d.getDate()-1); }
+    else break;
+  }
+  return streak;
+}
+
+function lastLogTs(player) {
+  const logs = state.logs.filter(l=>l.player===player);
+  return logs.length ? Math.max(...logs.map(l=>l.ts)) : null;
+}
+
+function shameInfo(player) {
+  const ts = lastLogTs(player);
+  if (!ts) return { label:'NEVER LOGGED', cls:'shame-bad' };
+  const hrs = (Date.now()-ts)/3600000;
+  if (hrs < 4)  return { label:`${Math.round(hrs*10)/10}H AGO`, cls:'shame-ok' };
+  if (hrs < 12) return { label:`${Math.round(hrs)}H AGO`, cls:'shame-warn' };
+  if (hrs < 24 && todayPushups(player)>0) return { label:`${Math.round(hrs)}H AGO`, cls:'shame-warn' };
+  return { label:`${Math.round(hrs)}H AGO — GET OFF THE COUCH`, cls:'shame-bad' };
+}
+
+function calcScore(player) {
+  const pushups = todayPushups(player);
+  const goal    = goalOf(player);
+  const plank   = todayPlank(player) ? 50 : 0;
+  const pct     = pushups / goal;
+  let pushScore = pct >= 1.0
+    ? 100 + Math.round((pct-1)*50)
+    : Math.round(pct*90);
+  return pushScore + plank;
+}
+
+function getMilestones(player) {
+  return MILESTONES.filter(m => m.check(player));
+}
+
+// ── FIREBASE LISTENER ─────────────────────────────────
+function startListening() {
+  onValue(ref(db, 'squad'), (snapshot) => {
+    const data = snapshot.val();
+    if (!data) return;
+    state.players      = data.players      || [];
+    state.goals        = data.goals        || {};
+    state.logs         = data.logs         ? Object.values(data.logs) : [];
+    state.razzFeed     = data.razzFeed     ? Object.values(data.razzFeed) : [];
+    state.autoRazzTime = data.autoRazzTime || '20:00';
+    state.seenMilestones = data.seenMilestones || {};
+
+    document.getElementById('loadingOverlay').classList.add('hidden');
+
+    if (state.players.length < 2) {
+      document.getElementById('setupScreen').classList.add('open');
+    } else {
+      document.getElementById('setupScreen').classList.remove('open');
+      if (!initialized) { initialized=true; initApp(); }
+      else { refreshCurrentTab(); }
+    }
+    setSynced();
+  }, (error) => { setError(); console.error(error); });
+}
+
+function saveSquad() {
+  return dbSet('squad', {
+    players: state.players,
+    goals: state.goals,
+    autoRazzTime: state.autoRazzTime,
+    seenMilestones: state.seenMilestones,
+  });
+}
+
+function pushLog(entry) {
+  setSyncing();
+  return push(ref(db, 'squad/logs'), entry).then(setSynced).catch(e=>{setError();console.error(e);});
+}
+
+function pushRazz(entry) {
+  setSyncing();
+  return push(ref(db, 'squad/razzFeed'), entry).then(setSynced).catch(e=>{setError();console.error(e);});
+}
+
+// ── BOARD ─────────────────────────────────────────────
+function renderBoard() {
+  document.getElementById('todayLabel').textContent = fmtDate(todayStr());
+
+  const players = state.players.map(p => ({
+    name: p, pushups: todayPushups(p), plank: todayPlank(p),
+    streak: getStreak(p), goal: goalOf(p), score: calcScore(p),
+    milestones: getMilestones(p), shame: shameInfo(p),
+  })).sort((a,b) => b.score-a.score);
+
+  const container = document.getElementById('playerCards');
+  container.innerHTML = '';
+
+  players.forEach((p,i) => {
+    const rankClass = ['rank-1','rank-2','rank-3',''][i]||'';
+    const pushPct   = Math.min(100, Math.round((p.pushups/p.goal)*100));
+    const done      = p.pushups >= p.goal;
+    const onFire    = p.streak >= 3;
+    const over      = Math.max(0, p.pushups-p.goal);
+    const bonusPts  = over>0 ? Math.round((over/p.goal)*50) : 0;
+
+    const milestonesHTML = p.milestones.length
+      ? `<div class="milestones">${p.milestones.map(m=>`<span class="m-badge ${m.cls}">${m.label}</span>`).join('')}</div>`
+      : '';
+
+    const card = document.createElement('div');
+    card.className = `player-card ${rankClass}`;
+    card.style.animationDelay = `${i*0.05}s`;
+    card.innerHTML = `
+      <div class="card-top">
+        <div class="rank-badge">${i+1}</div>
+        <div class="card-name-row">
+          <div class="player-name">
+            ${p.name.toUpperCase()}
+            ${done?'<span class="badge badge-green">GOAL✓</span>':''}
+            ${p.plank?'<span class="badge badge-blue">PLANK✓</span>':''}
+          </div>
+          <div class="streak-line">${onFire?'🔥 ':''}${p.streak>0?p.streak+' DAY STREAK':'NO STREAK'}</div>
+          <div class="shame-line ${p.shame.cls}">⏱ ${p.shame.label}</div>
+        </div>
+        <div class="card-score-block">
+          <div class="score-num">${p.score}</div>
+          <div class="score-lbl">SCORE</div>
+          ${bonusPts>0?`<div style="font-size:0.55rem;color:var(--orange);letter-spacing:1px;margin-top:2px">+${bonusPts} BONUS</div>`:''}
+        </div>
+      </div>
+      ${milestonesHTML}
+      <div class="progress-bars">
+        <div class="bar-row">
+          <span class="bar-label">PUSHUPS</span>
+          <div class="bar-track"><div class="bar-fill pushups" style="width:${pushPct}%"></div></div>
+          <span class="bar-count">${p.pushups}/${p.goal}</span>
+        </div>
+        <div class="bar-row">
+          <span class="bar-label">PLANK</span>
+          <div class="bar-track"><div class="bar-fill plank" style="width:${p.plank?100:0}%"></div></div>
+          <span class="bar-count">${p.plank?'✓':'—'}</span>
+        </div>
+      </div>
+      <button class="raz-btn" onclick="openRazz('${p.name}')">💀 RAZZ ${p.name.toUpperCase()}</button>
+    `;
+    container.appendChild(card);
+  });
+
+  const topStreak  = state.players.length ? Math.max(...state.players.map(p=>getStreak(p))) : 0;
+  const totalDays  = [...new Set(state.logs.map(l=>l.date))].length;
+  const totalPush  = state.logs.reduce((s,l)=>s+(l.pushups||0),0);
+  const totalPlank = state.players.reduce((s,p)=>s+allTimePlanks(p),0);
+
+  document.getElementById('overallStats').innerHTML = `
+    <div class="stat-card"><span class="stat-value">${totalPush}</span><span class="stat-label">PUSHUPS</span></div>
+    <div class="stat-card"><span class="stat-value">${totalPlank}</span><span class="stat-label">PLANKS</span></div>
+    <div class="stat-card"><span class="stat-value">${topStreak}</span><span class="stat-label">BEST STREAK</span></div>
+    <div class="stat-card"><span class="stat-value">${totalDays}</span><span class="stat-label">DAYS ACTIVE</span></div>
+  `;
+}
+
+// ── WEEKLY ────────────────────────────────────────────
+function getWeekDays() {
+  const days=[], d=new Date(), dow=d.getDay();
+  const monday=new Date(d); monday.setDate(d.getDate()-((dow+6)%7));
+  for(let i=0;i<7;i++){const day=new Date(monday);day.setDate(monday.getDate()+i);days.push(day.toLocaleDateString('en-CA'));}
+  return days;
+}
+
+function renderWeekly() {
+  const days=getWeekDays(), today=todayStr();
+  const dayNames=['MON','TUE','WED','THU','FRI','SAT','SUN'];
+  document.getElementById('weekRange').textContent=`${fmtDate(days[0])} – ${fmtDate(days[6])}`;
+  const container=document.getElementById('weekGrid');
+  container.innerHTML='';
+  const wins={};
+  state.players.forEach(p=>wins[p]=0);
+
+  days.forEach((dateStr,di)=>{
+    const isFuture=dateStr>today;
+    const dayData=state.players.map(p=>({
+      name:p,
+      pushups:state.logs.filter(l=>l.player===p&&l.date===dateStr).reduce((s,l)=>s+(l.pushups||0),0),
+      plank:state.logs.filter(l=>l.player===p&&l.date===dateStr).some(l=>l.plank),
+    }));
+    const winner=dayData.filter(d=>d.pushups>0).sort((a,b)=>b.pushups-a.pushups)[0];
+    if(winner&&!isFuture) wins[winner.name]=(wins[winner.name]||0)+1;
+    const hasData=dayData.some(d=>d.pushups>0||d.plank);
+    const card=document.createElement('div');
+    card.className='week-day-card';
+    if(dateStr===today) card.style.borderColor='var(--accent)';
+    if(isFuture) card.style.opacity='0.4';
+    card.innerHTML=`
+      <div class="week-day-header">
+        <span class="week-day-label">${dayNames[di]} ${fmtDate(dateStr)}</span>
+        <span class="week-day-winner">${winner&&!isFuture?'🏆 '+winner.name.toUpperCase():isFuture?'UPCOMING':'—'}</span>
+      </div>
+      ${hasData?dayData.map(p=>`
+        <div class="week-player-row">
+          <span class="week-player-name">${p.name.toUpperCase()}</span>
+          <div class="week-bar-track"><div class="week-bar-fill" style="width:${Math.min(100,Math.round((p.pushups/Math.max(goalOf(p.name),1))*100))}%"></div></div>
+          <span class="week-bar-count">${p.pushups}${p.plank?' 🪵':''}</span>
+        </div>
+      `).join(''):'<div class="week-empty">NO LOGS THIS DAY</div>'}
+    `;
+    container.appendChild(card);
+  });
+
+  document.getElementById('weeklyWins').innerHTML=state.players
+    .map(p=>({name:p,wins:wins[p]||0}))
+    .sort((a,b)=>b.wins-a.wins)
+    .map(p=>`<div class="stat-card"><span class="stat-value">${p.wins}</span><span class="stat-label">${p.name.toUpperCase()}<br>WINS</span></div>`)
+    .join('');
+}
+
+// ── LOG ───────────────────────────────────────────────
+function renderLogSelect() {
+  const sel = document.getElementById('logPlayer');
+  sel.innerHTML = `<option value="" disabled selected>— SELECT PLAYER —</option>` +
+    state.players.map(p=>`<option value="${p}">${p.toUpperCase()} (GOAL: ${goalOf(p)})</option>`).join('');
+}
+
+window.addPushups = function(n) {
+  const inp=document.getElementById('logPushups');
+  inp.value=(parseInt(inp.value)||0)+n;
+};
+
+window.togglePlank = function(val) {
+  state.plankSelected=val;
+  document.getElementById('plankYes').classList.toggle('selected',val);
+  document.getElementById('plankNo').classList.toggle('selected',!val);
+};
+
+window.logEntry = async function() {
+  const player=document.getElementById('logPlayer').value;
+  if(!player){showToast('SELECT A PLAYER FIRST');return;}
+  const pushups=parseInt(document.getElementById('logPushups').value)||0;
+  const plank=state.plankSelected;
+  if(!pushups&&!plank){showToast('LOG SOMETHING FIRST 🤦');return;}
+
+  const prevTotal=todayPushups(player);
+  const entry={player,pushups,plank,date:todayStr(),ts:Date.now()};
+  await pushLog(entry);
+
+  document.getElementById('logPushups').value='';
+  togglePlank(true);
+
+  const newTotal=todayPushups(player);
+  const goal=goalOf(player);
+  let msg=pushups>0?`+${pushups} LOGGED`:'';
+  if(plank) msg+=(msg?' + PLANK ✓':'PLANK DONE ✓');
+  if(prevTotal<goal && newTotal>=goal){showToast(`💪 ${player.toUpperCase()} HIT THEIR GOAL!`,'milestone');return;}
+  showToast(msg);
+  checkMilestones(player);
+};
+
+async function checkMilestones(player) {
+  const seen = state.seenMilestones[player] || [];
+  let newSeen = [...seen];
+  let found = false;
+  MILESTONES.forEach(m => {
+    if(!seen.includes(m.id) && m.check(player)) {
+      newSeen.push(m.id);
+      found = true;
+      setTimeout(()=>showToast(`🏅 ${player.toUpperCase()}: ${m.label} UNLOCKED!`,'milestone'),1200);
+    }
+  });
+  if(found) {
+    state.seenMilestones[player]=newSeen;
+    await dbSet(`squad/seenMilestones/${player}`, newSeen);
+  }
+}
+
+// ── RAZZ ──────────────────────────────────────────────
+function renderRazzFeed() {
+  const container=document.getElementById('razzFeed');
+  if(!state.razzFeed.length){container.innerHTML='<div class="empty">NO RAZZ YET.<br>SOMEONE SLACKING?</div>';return;}
+  container.innerHTML=[...state.razzFeed].sort((a,b)=>b.ts-a.ts).slice(0,40).map(r=>`
+    <div class="raz-item ${r.auto?'auto-raz-item':''}">
+      <div class="raz-text">"${r.message}"</div>
+      <div class="raz-meta">${r.auto?'🤖 AUTO-RAZZ':'💀'} → ${r.to.toUpperCase()} · ${fmtTime(r.ts)}</div>
+    </div>
+  `).join('');
+}
+
+window.openRazz = function(name) {
+  state.razzTarget=name;
+  state.razzSelected=null;
+  document.getElementById('razzModalSub').textContent=`SENDING TO: ${name.toUpperCase()}`;
+  const opts=[...RAZ_LINES].sort(()=>Math.random()-0.5).slice(0,5);
+  document.getElementById('razzOptions').innerHTML=opts.map(r=>
+    `<button class="raz-option" onclick="selectRazz(this)" data-msg="${r.replace(/"/g,'&quot;')}">${r}</button>`
+  ).join('');
+  document.getElementById('razzModal').classList.add('open');
+  document.getElementById('customRazz').value='';
+};
+
+window.selectCustomRazz = function(val) {
+  if(val.trim()){
+    document.querySelectorAll('.raz-option').forEach(b=>b.classList.remove('selected'));
+    state.razzSelected=val.trim();
+  } else if(!document.querySelector('.raz-option.selected')){
+    state.razzSelected=null;
+  }
+};
+
+window.selectRazz = function(el) {
+  document.querySelectorAll('.raz-option').forEach(b=>b.classList.remove('selected'));
+  el.classList.add('selected');
+  state.razzSelected=el.dataset.msg;
+  document.getElementById('customRazz').value='';
+};
+
+window.closeRazz = function() { document.getElementById('razzModal').classList.remove('open'); };
+window.handleOverlayClick = function(e) { if(e.target===document.getElementById('razzModal')) closeRazz(); };
+
+window.sendRazz = async function() {
+  if(!state.razzSelected){showToast('PICK A LINE FIRST');return;}
+  await pushRazz({to:state.razzTarget,message:state.razzSelected,ts:Date.now()});
+  closeRazz();
+  showToast(`💀 RAZZ SENT TO ${state.razzTarget.toUpperCase()}`,'raz');
+};
+
+// ── AUTO-RAZZ ─────────────────────────────────────────
+async function checkAutoRazz() {
+  const [h,m]=state.autoRazzTime.split(':').map(Number);
+  const now=new Date();
+  const triggerKey=`autoRazzFired_${todayStr()}`;
+  let fired=[];
+  try{fired=JSON.parse(localStorage.getItem(triggerKey)||'[]');}catch(e){}
+  if(now.getHours()>=h && now.getMinutes()>=m){
+    for(const p of state.players){
+      if(!fired.includes(p)&&todayPushups(p)===0&&!todayPlank(p)){
+        const msg=AUTO_RAZ_LINES[Math.floor(Math.random()*AUTO_RAZ_LINES.length)];
+        await pushRazz({to:p,message:`${p.toUpperCase()} ${msg}`,ts:Date.now(),auto:true});
+        fired.push(p);
+      }
+    }
+    try{localStorage.setItem(triggerKey,JSON.stringify(fired));}catch(e){}
+  }
+}
+
+// ── HISTORY ───────────────────────────────────────────
+function renderHistory() {
+  const container=document.getElementById('logEntries');
+  const sorted=[...state.logs].sort((a,b)=>b.ts-a.ts).slice(0,60);
+  if(!sorted.length){container.innerHTML='<div class="empty">NO LOGS YET.<br>GET TO WORK.</div>';return;}
+  container.innerHTML=sorted.map(l=>`
+    <div class="log-entry">
+      <div>
+        <div class="log-name">${l.player.toUpperCase()}</div>
+        <div class="log-detail">${l.pushups>0?`+${l.pushups} PUSHUPS`:''}${l.pushups>0&&l.plank?' · ':''}${l.plank?'PLANK ✓':''}</div>
+      </div>
+      <div class="log-time">${fmtDate(l.date)}<br>${fmtTime(l.ts)}</div>
+    </div>
+  `).join('');
+}
+
+// ── CREW ──────────────────────────────────────────────
+function renderCrew() {
+  document.getElementById('autoRazzTime').value=state.autoRazzTime;
+  document.getElementById('crewList').innerHTML=state.players.map(p=>`
+    <div class="log-entry" style="flex-wrap:wrap;gap:8px">
+      <div style="flex:1;min-width:0">
+        <div class="log-name">${p.toUpperCase()}</div>
+        <div class="log-detail">GOAL: ${goalOf(p)} · ${allTimePushups(p)} PUSHUPS · ${allTimePlanks(p)} PLANKS</div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+          <span style="font-size:0.6rem;color:var(--muted);letter-spacing:1px">GOAL:</span>
+          <input type="number" value="${goalOf(p)}" min="1" max="1000" inputmode="numeric"
+            onchange="updateGoal('${p}',this.value)"
+            style="width:70px;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:4px 8px;font-family:'DM Mono',monospace;font-size:0.8rem;border-radius:4px;outline:none">
+          <span style="font-size:0.6rem;color:var(--muted)">PUSHUPS/DAY</span>
+        </div>
+      </div>
+      <button onclick="removePlayer('${p}')" style="padding:8px 12px;background:transparent;border:1px solid var(--accent2);color:var(--accent2);font-family:'DM Mono',monospace;font-size:0.65rem;border-radius:6px;cursor:pointer;flex-shrink:0;min-height:36px;align-self:center">REMOVE</button>
+    </div>
+  `).join('');
+}
+
+window.addPlayer = async function() {
+  const nameInp=document.getElementById('newPlayerName');
+  const goalInp=document.getElementById('newPlayerGoal');
+  const name=nameInp.value.trim();
+  const goal=parseInt(goalInp.value)||100;
+  if(!name){showToast('ENTER A NAME FIRST');return;}
+  if(state.players.map(p=>p.toLowerCase()).includes(name.toLowerCase())){showToast('ALREADY IN THE CREW');return;}
+  state.players.push(name);
+  state.goals[name]=goal;
+  await saveSquad();
+  nameInp.value=''; goalInp.value='';
+  showToast(`${name.toUpperCase()} ADDED 💪`);
+};
+
+window.removePlayer = async function(name) {
+  if(state.players.length<=2){showToast("CAN'T GO BELOW 2 PLAYERS");return;}
+  if(!confirm(`Remove ${name}? Their history stays.`)) return;
+  state.players=state.players.filter(p=>p!==name);
+  await saveSquad();
+  showToast(`${name.toUpperCase()} REMOVED`);
+};
+
+window.updateGoal = async function(player,val) {
+  const g=Math.max(1,parseInt(val)||100);
+  state.goals[player]=g;
+  await dbSet(`squad/goals/${player}`,g);
+  showToast(`${player.toUpperCase()} GOAL: ${g} 💪`);
+};
+
+window.saveSettings = async function() {
+  state.autoRazzTime=document.getElementById('autoRazzTime').value;
+  await dbSet('squad/autoRazzTime',state.autoRazzTime);
+  showToast('SETTINGS SAVED ✓');
+};
+
+// ── UI ────────────────────────────────────────────────
+function showToast(msg,type='') {
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.className='toast show'+(type?' '+type:'');
+  clearTimeout(t._t);
+  t._t=setTimeout(()=>t.classList.remove('show'),3000);
+}
+window.showToast = showToast;
+
+window.showTab = function(tab,btn) {
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(`section-${tab}`).classList.add('active');
+  btn.classList.add('active');
+  document.querySelector('.app-body').scrollTop=0;
+  if(tab==='history') renderHistory();
+  if(tab==='razz')    renderRazzFeed();
+  if(tab==='board')   renderBoard();
+  if(tab==='weekly')  renderWeekly();
+  if(tab==='crew')    renderCrew();
+};
+
+function refreshCurrentTab() {
+  const active=document.querySelector('.section.active');
+  if(!active) return;
+  const tab=active.id.replace('section-','');
+  if(tab==='board')   renderBoard();
+  if(tab==='weekly')  renderWeekly();
+  if(tab==='razz')    renderRazzFeed();
+  if(tab==='history') renderHistory();
+  if(tab==='crew')    renderCrew();
+}
+
+window.startApp = async function() {
+  const names=['p1','p2','p3','p4'].map(id=>document.getElementById(id).value.trim()).filter(Boolean);
+  if(names.length<2){showToast('NEED AT LEAST 2 NAMES');return;}
+  state.players=names;
+  names.forEach(n=>{if(!state.goals[n])state.goals[n]=100;});
+  await saveSquad();
+  document.getElementById('setupScreen').classList.remove('open');
+};
+
+function initApp() {
+  renderLogSelect();
+  renderBoard();
+  checkAutoRazz();
+  setInterval(checkAutoRazz,60000);
+  setTimeout(()=>{
+    const slackers=state.players.filter(p=>todayPushups(p)===0&&!todayPlank(p));
+    if(slackers.length&&state.logs.length>0) showToast(`${slackers[0].toUpperCase()} HASN'T LOGGED TODAY 👀`);
+  },1500);
+}
+
+// ── BOOT ──────────────────────────────────────────────
+startListening();
+</script>
+</body>
+</html>
