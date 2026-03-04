@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Firebase Test</title>
+</head>
+<body>
+<h2 id="status">Connecting...</h2>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-app.js";
+import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/11.0.0/firebase-database.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyAxHKfG06pHR3l1eRj95kIjT5ZjDVqMStU",
+  authDomain: "pushocalypse.firebaseapp.com",
+  databaseURL: "https://pushocalypse-default-rtdb.firebaseio.com",
+  projectId: "pushocalypse",
+  storageBucket: "pushocalypse.firebasestorage.app",
+  messagingSenderId: "157303209324",
+  appId: "1:157303209324:web:285cfe6853459283520749",
+});
+
+const db = getDatabase(app);
+
+document.getElementById('status').textContent = 'Firebase initialized. Reading...';
+
+onValue(ref(db, 'test'), (snapshot) => {
+  document.getElementById('status').textContent = '✅ FIREBASE CONNECTED! Value: ' + JSON.stringify(snapshot.val());
+}, (error) => {
+  document.getElementById('status').textContent = '❌ ERROR: ' + error.message;
+});
+
+set(ref(db, 'test'), 'hello').then(() => {
+  document.getElementById('status').textContent += ' | Write OK';
+}).catch(e => {
+  document.getElementById('status').textContent += ' | Write FAILED: ' + e.message;
+});
+</script>
+</body>
+</html>
