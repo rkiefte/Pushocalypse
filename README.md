@@ -1,2 +1,0 @@
-# Pushocalypse
-Push Up Tracker
