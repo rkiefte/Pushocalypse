@@ -373,12 +373,11 @@
 
 <div class="toast" id="toast"></div>
 
-<!-- FIREBASE -->
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getDatabase, ref, set, onValue, push, get } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-const firebaseConfig = {
+<!-- FIREBASE COMPAT SDK (works on all hosts) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+firebase.initializeApp({
   apiKey: "AIzaSyAxHKfG06pHR3l1eRj95kIjT5ZjDVqMStU",
   authDomain: "pushocalypse.firebaseapp.com",
   databaseURL: "https://pushocalypse-default-rtdb.firebaseio.com",
@@ -386,10 +385,14 @@ const firebaseConfig = {
   storageBucket: "pushocalypse.firebasestorage.app",
   messagingSenderId: "157303209324",
   appId: "1:157303209324:web:285cfe6853459283520749",
-};
+});
+const db = firebase.database();
 
-const fbApp = initializeApp(firebaseConfig);
-const db    = getDatabase(fbApp);
+// Compat shims so rest of code works unchanged
+const ref     = (database, path) => database.ref(path);
+const set     = (r, val) => r.set(val);
+const push    = (r, val) => r.push(val);
+const onValue = (r, cb, errCb) => r.on('value', cb, errCb);
 
 // ── SYNC HELPERS ──────────────────────────────────────
 const syncDot = document.getElementById('syncDot');
@@ -931,4 +934,4 @@ function initApp() {
 startListening();
 </script>
 </body>
-</html> 
+</html>
